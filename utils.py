@@ -4,6 +4,7 @@ from tqdm import tqdm
 import pandas as pd
 from transformers import pipeline
 import warnings 
+import numpy as np
 warnings.filterwarnings('ignore')
 classifier = pipeline("zero-shot-classification", device=0) #GPU
 candidate_labels = ["positive", "negative"]
@@ -57,9 +58,10 @@ def get_this_index_data(URL):
         except:
             pass #(本文已被刪除)
     df = pd.DataFrame()
-    df['title'] = titles
-    df['url'] = urls
-    df['content'] = contents
+    min_len = np.min([len(titles),len(urls),len(contents)])
+    df['title'] = titles[:min_len]
+    df['url'] = urls[:min_len]
+    df['content'] = contents[:min_len]
     return df
 
 # 根據URL和指定頁數取得串接多個PAGE後的dataframe格式資料
