@@ -5,9 +5,72 @@ import pandas as pd
 from transformers import pipeline
 import warnings 
 import numpy as np
+from selenium import webdriver
+from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
+import time
+import pandas as pd
+import requests
+import bs4
+import re
+import gc
 warnings.filterwarnings('ignore')
 classifier = pipeline("zero-shot-classification", device=0) #GPU
 candidate_labels = ["positive", "negative"]
+
+# 爬ettoday,輸出dataframe
+def craw_ettoday(hours=2): # hours=2控制資料量
+    browser = webdriver.Chrome(executable_path='./chromedriver')
+    browser.get("https://www.ettoday.net/news/news-list.htm")
+    two_hours_ago = datetime.now() - timedelta(hours = hours)
+    print(two_hours_ago)
+    two_hours_ago_time = two_hours_ago.strftime("%Y/%m/%d %H:%M")
+    print("兩小時前時間：", two_hours_ago_time)
+    last_height = browser.execute_script("return document.body.scrollHeight")
+    go=True
+    while go:
+        browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+        html_source = browser.page_source
+        soup = BeautifulSoup(html_source, "lxml")
+        new_height = browser.execute_script("return document.body.scrollHeight")
+        #已經到頁面底部
+        if new_height == last_height:
+            print("已經到頁面最底部，程序停止")
+            break
+        last_height = new_height
+        for d in soup.find(class_="part_list_2").find_all('h3'):
+            #已經超出兩小時
+            if datetime.strptime(d.find(class_="date").text, '%Y/%m/%d %H:%M') < two_hours_ago:
+                print("已經超出兩個小時，程序停止")
+                go = False
+                break
+            else:
+                print("目前畫面最下方文章的日期時間為：",d.find_all(class_="date")[-1].text)
+    html_source = browser.page_source
+    soup = BeautifulSoup(html_source, "lxml")
+    news ={"日期時間":[],"標題":[],"連結":[]}
+    for d in soup.find(class_="part_list_2").find_all('h3'):
+        if two_hours_ago_time in d.find(class_="date") :
+            pass
+        else:
+            print(d.find(class_="date").text, d.find_all('a')[-1].text)
+            news["日期時間"].append(d.find(class_="date").text)
+            news["標題"].append(d.find_all('a')[-1].text)
+            news["連結"].append("https://www.ettoday.net" + d.find_all('a')[-1]["href"])
+    browser.close()  #很重要喔記得要關掉瀏覽器．不然要手動關掉
+    df_news=pd.DataFrame(news)
+    df_content = pd.DataFrame(columns=['title','url','content'])
+    for idx in df_news.index:
+        標題 = df_news.loc[idx,'標題']
+        連結 = df_news.loc[idx,'連結']
+        soup = bs4.BeautifulSoup(requests.get(連結).text,"html.parser")
+        內文 = re.sub('[\001\002\003\004\005\006\007\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a]+','',str(soup.select('div.story>p')))
+        # 一個dataframe 三個欄位
+        df_content.loc[idx,'title'] = 標題
+        df_content.loc[idx,'url'] = 連結
+        df_content.loc[idx,'content'] = 內文
+    return df_content
 
 # 將RAW DATA 有意義的 內文 撈出來
 def get_content(soup):
@@ -75,11 +138,18 @@ def get_some_page_ptt_data(URL,last_n_page):
     return df
 
 # 根據URL和指定數量PAGE和特定角色計算聲量分數
-def get_score_by_person(URL,last_n_page,person_name,save=False):
+def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=False):
+    gc.collect()
     df = get_some_page_ptt_data(URL,last_n_page)
+    
+    # 是否增加ettoday_data
+    if use_ettoday_data == True:
+        ettoday_data = craw_ettoday(hours=2)
+        df = df.append(ettoday_data)
+    
     if save == True:
-        df.to_excel('ptt_post.xlsx')
-    df['all_text'] = df['title']+df['content']
+        df.to_excel('data.xlsx')
+    df['all_text'] = df['title'] + df['content']
     idx_lst = []
     for idx,text in enumerate(df['all_text']):
         if person_name in text:
