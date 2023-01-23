@@ -15,8 +15,15 @@ import bs4
 import re
 import gc
 warnings.filterwarnings('ignore')
-classifier = pipeline("zero-shot-classification", device=0) #GPU
-candidate_labels = ["positive", "negative"]
+
+# 輸入sentence前處理
+def preprocess_raw_sentence(x):
+    x = re.sub(r'[a-zA-Z]','',x)#去除英文
+    x = re.sub(r'[\d]','',x)#去除數字
+    x = re.sub(r'[^\w\s]','',x) # 去除標點符號
+    x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 去除換行符號
+    str.strip(x) # 去除左右空白
+    return x 
 
 # 爬ettoday,輸出dataframe
 def craw_ettoday(hours=2): # hours=2控制資料量
@@ -158,6 +165,8 @@ def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=
     key_df = key_df.reset_index(drop=True)
     print('資料筆數:',len(key_df))
     key_df['情緒'] = 0
+    classifier = pipeline("zero-shot-classification", device=0) #GPU
+    candidate_labels = ["positive", "negative"]
     for idx,text in tqdm(enumerate(key_df['all_text'].values.tolist())):
         key_df.loc[idx,'情緒'] = classifier(text, candidate_labels)['labels'][0]
     score = (key_df['情緒']=='positive').sum()/(key_df['情緒']=='negative').sum()
