@@ -1,22 +1,35 @@
 import requests
 import bs4
 import pandas as pd
+import numpy as np
+from tqdm import tqdm_notebook as tqdm
 
-url = "https://ctinews.com/"
-response = requests.get(url)
-soup = bs4.BeautifulSoup(response.text,"html.parser")
-soup  = soup.find_all('a','news-link')
-url_list = []
-for i in soup:
-    if 'title' in str(i):
-        title = i.split('title=')[1]
-        print(title)#.split('title=')[1])
-        raise '123'
-    url = str(i).split('href=')[1].split('rel')[0].split('title')[0].split("><")[0]
-    if ('youtube' not in url) and ( 'videos' not in url):
-        url = url.replace('"','')
-        url = str('https://ctinews.com')+str(url)
-        url_list.append(url)
-    df = pd.DataFrame(columns=['url'])
-    df['url'] = url_list
-#print(df)
+
+def 爬中天新聞():
+    url = "https://ctinews.com/"
+    soup = bs4.BeautifulSoup(requests.get(url).text,"html.parser")
+    result = soup.find_all('a','news-link')
+    urls = []
+    titles = []
+    contents = []
+    for i in tqdm(result[:5]):
+        i = str(i)
+        try:
+            title = i.split('title')[1].split('><')[0].split('「')[1].split('」')[0]
+            url = i.split("href")[1].split('title')[0].replace('=','').replace('"','')[:22]
+            url = f'https://ctinews.com{url}'
+            content = bs4.BeautifulSoup(requests.get(url).text,"html.parser")
+            urls.append(url)
+            titles.append(title)
+            contents.append(content)
+        except:
+            pass
+    df = pd.DataFrame()
+    min_len = np.min([len(titles),len(urls),len(contents)])
+    df['title'] = titles[:min_len]
+    df['url'] = urls[:min_len]
+    df['content'] = contents[:min_len]
+    return df
+
+if __name__ == '__main__':
+    爬中天新聞()
