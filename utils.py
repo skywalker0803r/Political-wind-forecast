@@ -194,13 +194,9 @@ def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=
     key_df = key_df.reset_index(drop=True)
     print('總資料筆數:',len(key_df))
     key_df['情緒'] = 0
-    classifier = pipeline("zero-shot-classification", device=0) #GPU
+    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device=0,) #joeddav/xlm-roberta-large-xnli支援中文
     candidate_labels = ["positive", "negative"]
-    translator = Translator(from_lang="chinese",to_lang="english")
     for idx,text in tqdm(enumerate(key_df['all_text'].values.tolist())):
-        try:
-            key_df.loc[idx,'情緒'] = classifier(translator.translate(text),candidate_labels)['labels'][0]
-        except:
-            key_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
+        key_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
     score = (key_df['情緒']=='positive').sum()/(key_df['情緒']=='negative').sum()
     return score
