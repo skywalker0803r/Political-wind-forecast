@@ -32,10 +32,16 @@ if ettoday:
     use_data_list.append('ettoday')
     use_ettoday_data = True
 
+use_udn_data = False
+udn = st.checkbox('udn')
+if udn:
+    use_data_list.append('udn')
+    use_udn_data = True
+
 if st.button('Submit'):
     st.write('使用資料如下')
     st.write(use_data_list)
     #call the custom function
-    score = get_score_by_person(URL,last_n_page,figure_name,save=False,use_ettoday_data=use_ettoday_data)
+    score = get_score_by_person(URL,last_n_page,figure_name,save=False,use_ettoday_data=use_ettoday_data,use_udn_data=use_udn_data)
     #output the result
     st.success(f"{figure_name}'s popularity score is {score}")

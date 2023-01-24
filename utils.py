@@ -25,6 +25,26 @@ def preprocess_raw_sentence(x):
     str.strip(x) # 去除左右空白
     return x 
 
+# 爬UDN,輸出dataframe
+def craw_UDN():
+    r = requests.get('https://udn.com/rank/pv/2')
+    df = pd.DataFrame()
+    titles = []
+    urls = []
+    contents = []
+    if r.status_code == requests.codes.ok:
+        soup = BeautifulSoup(r.text, 'html.parser')
+        stories = soup.find_all('a', class_='story-list__image--holder')
+        for s in stories: 
+            if type(s.get('aria-label')) is str:  
+                titles.append(s['aria-label'])
+                urls.append(s.get('href'))
+                contents.append(preprocess_raw_sentence(str(BeautifulSoup(requests.get(s.get('href')).text, 'html.parser').find_all('section', class_='article-content__editor'))))
+    df['title'] = titles
+    df['url'] = urls
+    df['content'] = contents
+    return df
+
 # 爬ettoday,輸出dataframe
 def craw_ettoday(hours=2): # hours=2控制資料量
     browser = webdriver.Chrome(executable_path='./chromedriver')
@@ -145,7 +165,7 @@ def get_some_page_ptt_data(URL,last_n_page):
     return df
 
 # 根據URL和指定數量PAGE和特定角色計算聲量分數
-def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=False):
+def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=False,use_udn_data=False):
     gc.collect()
     df = get_some_page_ptt_data(URL,last_n_page)
     
@@ -153,6 +173,10 @@ def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=
     if use_ettoday_data == True:
         ettoday_data = craw_ettoday(hours=2)
         df = df.append(ettoday_data)
+    
+    if use_udn_data == True:
+        udn_data = craw_UDN()
+        df = df.append(udn_data)
     
     if save == True:
         df.to_excel('data.xlsx')
