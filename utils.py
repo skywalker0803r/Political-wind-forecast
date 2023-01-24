@@ -14,6 +14,8 @@ import requests
 import bs4
 import re
 import gc
+from translate import Translator
+
 warnings.filterwarnings('ignore')
 
 # 輸入sentence前處理
@@ -35,7 +37,7 @@ def craw_UDN():
     if r.status_code == requests.codes.ok:
         soup = BeautifulSoup(r.text, 'html.parser')
         stories = soup.find_all('a', class_='story-list__image--holder')
-        for s in stories: 
+        for s in tqdm(stories): 
             if type(s.get('aria-label')) is str:  
                 titles.append(s['aria-label'])
                 urls.append(s.get('href'))
@@ -77,7 +79,7 @@ def craw_ettoday(hours=2): # hours=2控制資料量
     html_source = browser.page_source
     soup = BeautifulSoup(html_source, "lxml")
     news ={"日期時間":[],"標題":[],"連結":[]}
-    for d in soup.find(class_="part_list_2").find_all('h3'):
+    for d in tqdm(soup.find(class_="part_list_2").find_all('h3')):
         if two_hours_ago_time in d.find(class_="date") :
             pass
         else:
@@ -137,7 +139,7 @@ def get_this_index_data(URL):
     urls = []
     titles = []
     contents = []
-    for i in result:
+    for i in tqdm(result):
         try:
             post_url = 'https://www.ptt.cc'+str(i).split('href="')[1].split('">')[0]
             urls.append(post_url)
@@ -168,15 +170,18 @@ def get_some_page_ptt_data(URL,last_n_page):
 def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=False,use_udn_data=False):
     gc.collect()
     df = get_some_page_ptt_data(URL,last_n_page)
+    print(f'ptt資料數{len(df)}')
     
     # 是否增加ettoday_data
     if use_ettoday_data == True:
         ettoday_data = craw_ettoday(hours=2)
         df = df.append(ettoday_data)
+        print(f'ettoday資料數{len(ettoday_data)}')
     
     if use_udn_data == True:
         udn_data = craw_UDN()
         df = df.append(udn_data)
+        print(f'udn資料數{len(udn_data)}')
     
     if save == True:
         df.to_excel('data.xlsx')
@@ -187,11 +192,15 @@ def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=
             idx_lst.append(idx)
     key_df = df.iloc[idx_lst,:]
     key_df = key_df.reset_index(drop=True)
-    print('資料筆數:',len(key_df))
+    print('總資料筆數:',len(key_df))
     key_df['情緒'] = 0
     classifier = pipeline("zero-shot-classification", device=0) #GPU
     candidate_labels = ["positive", "negative"]
+    translator = Translator(from_lang="chinese",to_lang="english")
     for idx,text in tqdm(enumerate(key_df['all_text'].values.tolist())):
-        key_df.loc[idx,'情緒'] = classifier(text, candidate_labels)['labels'][0]
+        try:
+            key_df.loc[idx,'情緒'] = classifier(translator.translate(text),candidate_labels)['labels'][0]
+        except:
+            key_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
     score = (key_df['情緒']=='positive').sum()/(key_df['情緒']=='negative').sum()
     return score
