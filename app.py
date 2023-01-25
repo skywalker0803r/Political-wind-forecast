@@ -3,21 +3,21 @@ from utils import *
 
 use_data_list = []
 
-#default parameter
+#預設的PTT政治板URL,和預設要抓幾頁:last_n_page
 URL = "https://www.ptt.cc/bbs/HatePolitics/index.html"
 last_n_page = 100
 
-st.set_page_config(page_title="Political Figure Popularity", page_icon=":guardsman:", layout="wide")
-st.title("Political Figure Popularity")
+st.set_page_config(page_title="政治人物聲量分數分析", page_icon=":guardsman:", layout="wide")
+st.title("政治人物聲量分數分析")
 
-#get input
-figure_name = st.text_input("Enter the name of the political figure:")
+#輸入政客名稱
+figure_name = st.text_input("輸入政治人物名稱:")
 
 #get URL
-URL = st.text_input("Enter the URL:",value=URL)
+URL = st.text_input("預設PTT政治板URL:",value=URL)
 
 #get last_n_page
-last_n_page = st.number_input("Enter the last_n_page:",value=last_n_page)
+last_n_page = st.number_input("預設撈最近N頁PTT政治版的文章:",value=last_n_page)
 
 # use data
 use_ptt_data = True
@@ -38,10 +38,18 @@ if udn:
     use_data_list.append('udn')
     use_udn_data = True
 
+use_ctinews_data = False
+ctinews = st.checkbox('ctinews')
+if ctinews:
+    use_data_list.append('ctinews')
+    use_ctinews_data = True
+
 if st.button('Submit'):
     st.write('使用資料如下')
     st.write(use_data_list)
-    #call the custom function
-    score = get_score_by_person(URL,last_n_page,figure_name,save=False,use_ettoday_data=use_ettoday_data,use_udn_data=use_udn_data)
-    #output the result
-    st.success(f"{figure_name}'s popularity score is {score}")
+    score = get_score_by_person(URL,last_n_page,figure_name,save=False,
+    use_ettoday_data=use_ettoday_data,
+    use_udn_data=use_udn_data,
+    use_ctinews_data=use_ctinews_data
+    )
+    st.success(f"{figure_name}'的政治聲量分數為:{score}")
