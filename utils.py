@@ -11,6 +11,7 @@ import time
 import re
 import gc
 import warnings 
+import streamlit as st
 warnings.filterwarnings('ignore')
 
 # 輸入sentence前處理
@@ -21,6 +22,21 @@ def preprocess_raw_sentence(x):
     x = x.replace('\n', '').replace('\r', '').replace('\t', '') #去除換行符號
     str.strip(x) # 去除左右空白
     return x 
+
+# 爬三立新聞網
+def craw_setn(n=10):
+    data ={'titles':[],'urls':[],'contents':[]}
+    soup = BeautifulSoup(requests.get('https://www.setn.com/Catalog.aspx?PageGroupID=6').text, 'lxml')
+    for s in tqdm(soup.find_all('a',pl='熱門新聞')[:n]):
+        data['titles'].append(s.text) 
+        data['urls'].append('https://www.setn.com' + s['href'])
+        data['contents'].append(BeautifulSoup(requests.get(data['urls'][-1]).text,'lxml').find_all('article')[0].text)
+        time.sleep(1)
+    df = pd.DataFrame()
+    df['title'] = data['titles']
+    df['url'] = data['urls']
+    df['content'] = data['contents']
+    return df
 
 # 爬中天新聞網
 def craw_ctinews(n=5,sleep_time=3):
@@ -146,7 +162,7 @@ def get_some_page_ptt_data(URL,last_n_page):
         urls = []
         titles = []
         contents = []
-        for i in tqdm(result):
+        for i in result:
             try:
                 post_url = 'https://www.ptt.cc'+str(i).split('href="')[1].split('">')[0]
                 urls.append(post_url)
@@ -213,51 +229,64 @@ def get_some_page_ptt_data(URL,last_n_page):
     return df
 
 # 根據URL和指定數量PAGE和特定角色計算聲量分數
-def get_score_by_person(URL,last_n_page,person_name,save=False,use_ettoday_data=False,use_udn_data=False,use_ctinews_data=False):
+def get_score_by_person(
+    URL,
+    last_n_page,
+    person_name,
+    save=False,
+    use_ettoday_data=False,
+    use_udn_data=False,
+    use_ctinews_data=False,
+    use_setnnews_data=False,
+    ):
     gc.collect()
     df = get_some_page_ptt_data(URL,last_n_page)
     print(f'ptt資料數{len(df)}')
     
-    # 是否增加ettoday_data
+    # 1 是否增加ettoday_data
     if use_ettoday_data == True:
         ettoday_data = craw_ettoday(hours=2)
         df = df.append(ettoday_data)
         print(f'ettoday資料數{len(ettoday_data)}')
     
-    # 是否增加udn_data
+    # 2 是否增加udn_data
     if use_udn_data == True:
         udn_data = craw_UDN()
         df = df.append(udn_data)
         print(f'udn資料數{len(udn_data)}')
     
-    # 是否增加ctinews_data
+    # 3 是否增加ctinews_data
     if use_ctinews_data == True:
         ctinews_data = craw_ctinews()
         df = df.append(ctinews_data)
         print(f'ctinews資料數{len(ctinews_data)}')
     
+    # 4 是否增加setn_data
+    if use_setnnews_data == True:
+        setn_data = craw_setn()
+        df = df.append(setn_data)
+        print(f'setnnews資料數{len(setn_data)}')
+    
     if save == True:
-        df.to_excel('data.xlsx')
-        print('資料保存至data.xlsx')
+        df.to_excel('所有新聞資料.xlsx')
+        print('資料保存!,檔案名稱為:所有新聞資料.xlsx}')
     
     # 合併標題和內文
     df['all_text'] = df['title'] + df['content']
     idx_lst = []
     for idx,text in enumerate(df['all_text']):
-        # 確認該人物是否出現在text內
         if person_name in text:
             idx_lst.append(idx)
-    # 關鍵Dataframe(篩選出現特定人物的dataframe)
-    key_df = df.iloc[idx_lst,:]
-    key_df = key_df.reset_index(drop=True)
-    print(f'出現{person_name}的資料筆數:',len(key_df))
+    person_name_df = df.iloc[idx_lst,:]
+    person_name_df = person_name_df.reset_index(drop=True)
+    print(f'出現{person_name}的資料筆數:',len(person_name_df))
     
     # 評分機制 由特定pretrain model做zero-shot-classification看這則文章屬於["positive", "negative"]哪一種
-    key_df['情緒'] = 0
-    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device=0,) #joeddav/xlm-roberta-large-xnli支援中文
+    person_name_df['情緒'] = 0
+    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device=0,) #joeddav/xlm-roberta-large-xnli有支援中文
     candidate_labels = ["positive", "negative"]
-    for idx,text in tqdm(enumerate(key_df['all_text'].values.tolist())):
-        key_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
+    for idx,text in tqdm(enumerate(person_name_df['all_text'].values.tolist())):
+        person_name_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
     # 最後將score定義為 positive/negative
-    score = (key_df['情緒']=='positive').sum()/(key_df['情緒']=='negative').sum()
+    score = (person_name_df['情緒']=='positive').sum()/(person_name_df['情緒']=='negative').sum()
     return score
