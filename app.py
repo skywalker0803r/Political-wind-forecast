@@ -66,7 +66,7 @@ if st.button('Submit'):
     with st.sidebar:
         st.write('使用資料如下')
         st.write(use_data_list)
-    score = get_score_by_person(URL,last_n_page,figure_name,save=False,
+    score = get_score_by_person(URL,last_n_page,figure_name,save={'ptt':True,'ettoday':True,'udn':True,'ctinews':True,'setnnews':True},
     use_ettoday_data = use_ettoday_data,
     use_udn_data = use_udn_data,
     use_ctinews_data = use_ctinews_data,

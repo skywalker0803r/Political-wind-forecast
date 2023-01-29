@@ -233,7 +233,7 @@ def get_score_by_person(
     URL,
     last_n_page,
     person_name,
-    save=False,
+    save={'ptt':True,'ettoday':True,'udn':True,'ctinews':True,'setnnews':True},
     use_ettoday_data=False,
     use_udn_data=False,
     use_ctinews_data=False,
@@ -241,35 +241,41 @@ def get_score_by_person(
     ):
     gc.collect()
     df = get_some_page_ptt_data(URL,last_n_page)
+    if save['ptt'] == True:
+        df.to_excel('ptt.xlsx')
     print(f'ptt資料數{len(df)}')
     
     # 1 是否增加ettoday_data
     if use_ettoday_data == True:
         ettoday_data = craw_ettoday(hours=2)
+        if save['ettoday'] == True:
+            ettoday_data.to_excel('./ettoday.xlsx')
         df = df.append(ettoday_data)
         print(f'ettoday資料數{len(ettoday_data)}')
     
     # 2 是否增加udn_data
     if use_udn_data == True:
         udn_data = craw_UDN()
+        if save['udn'] == True:
+            udn_data.to_excel('./udn.xlsx')
         df = df.append(udn_data)
         print(f'udn資料數{len(udn_data)}')
     
     # 3 是否增加ctinews_data
     if use_ctinews_data == True:
         ctinews_data = craw_ctinews()
+        if save['ctinews'] == True:
+            ctinews_data.to_excel('./ctinews_data.xlsx')
         df = df.append(ctinews_data)
         print(f'ctinews資料數{len(ctinews_data)}')
     
     # 4 是否增加setn_data
     if use_setnnews_data == True:
         setn_data = craw_setn()
+        if save['setnnews'] == True:
+            setn_data.to_excel('./setn_data.xlsx')
         df = df.append(setn_data)
         print(f'setnnews資料數{len(setn_data)}')
-    
-    if save == True:
-        df.to_excel('所有新聞資料.xlsx')
-        print('資料保存!,檔案名稱為:所有新聞資料.xlsx}')
     
     # 合併標題和內文
     df['all_text'] = df['title'] + df['content']
