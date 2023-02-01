@@ -14,6 +14,33 @@ import warnings
 import streamlit as st
 warnings.filterwarnings('ignore')
 
+def predict_function(df,person_name,n=3):
+    # 合併標題和內文
+    df['all_text'] = df['title'] + df['content']
+    idx_lst = []
+    for idx,text in enumerate(df['all_text']):
+        text = str(text)
+        if person_name in text:
+            idx_lst.append(idx)
+    person_name_df = df.iloc[idx_lst,:]
+    person_name_df = person_name_df.reset_index(drop=True)
+    st.write(f'出現{person_name}的資料筆數:',len(person_name_df))
+    if len(person_name_df)<n:
+        st.write(f'資料過少,少於{n}筆')
+    
+    # 評分機制 由特定pretrain model做zero-shot-classification看這則文章屬於["positive", "negative"]哪一種
+    person_name_df['情緒'] = 0
+    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device=0,) #joeddav/xlm-roberta-large-xnli有支援中文
+    candidate_labels = ["positive", "negative"]
+    for idx,text in tqdm(enumerate(person_name_df['all_text'].values.tolist())):
+        person_name_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
+    # 最後將score定義為 positive/negative
+    if (person_name_df['情緒']=='negative').sum() > 0:
+        score = (person_name_df['情緒']=='positive').sum()/(person_name_df['情緒']=='negative').sum()
+    else:
+        score = "score = (person_name_df['情緒']=='positive').sum()/(person_name_df['情緒']=='negative').sum() but can not caculate"
+    return score
+
 # 輸入sentence前處理
 def preprocess_raw_sentence(x):
     x = re.sub(r'[a-zA-Z]','',x) #去除英文
@@ -121,8 +148,7 @@ def craw_ettoday(hours=2): # hours=2控制資料量
     for idx in df_news.index:
         標題 = df_news.loc[idx,'標題']
         連結 = df_news.loc[idx,'連結']
-        soup = bs4.BeautifulSoup(requests.get(連結).text,"html.parser")
-        內文 = re.sub('[\001\002\003\004\005\006\007\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a]+','',str(soup.select('div.story>p')))
+        內文  = bs4.BeautifulSoup(requests.get(連結).text,'html.parser').find_all('div',class_='story')[0].text.replace('\n','')
         # 一個dataframe 三個欄位
         df_content.loc[idx,'title'] = 標題
         df_content.loc[idx,'url'] = 連結
@@ -277,22 +303,4 @@ def get_score_by_person(
         df = df.append(setn_data)
         print(f'setnnews資料數{len(setn_data)}')
     
-    # 合併標題和內文
-    df['all_text'] = df['title'] + df['content']
-    idx_lst = []
-    for idx,text in enumerate(df['all_text']):
-        if person_name in text:
-            idx_lst.append(idx)
-    person_name_df = df.iloc[idx_lst,:]
-    person_name_df = person_name_df.reset_index(drop=True)
-    print(f'出現{person_name}的資料筆數:',len(person_name_df))
-    
-    # 評分機制 由特定pretrain model做zero-shot-classification看這則文章屬於["positive", "negative"]哪一種
-    person_name_df['情緒'] = 0
-    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device=0,) #joeddav/xlm-roberta-large-xnli有支援中文
-    candidate_labels = ["positive", "negative"]
-    for idx,text in tqdm(enumerate(person_name_df['all_text'].values.tolist())):
-        person_name_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
-    # 最後將score定義為 positive/negative
-    score = (person_name_df['情緒']=='positive').sum()/(person_name_df['情緒']=='negative').sum()
-    return score
+    return predict_function(df,person_name)
