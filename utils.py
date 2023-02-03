@@ -157,25 +157,23 @@ def craw_ettoday(hours=2): # hours=2控制資料量
 
 # 爬ptt政治板
 def get_some_page_ptt_data(URL,last_n_page):
+    def get_content(soup):
+        ## 查找所有html 元素 抓出內容
+        main_container = soup.find(id='main-container')
+        # 把所有文字都抓出來
+        all_text = main_container.text
+        # 把整個內容切割透過 "-- " 切割成2個陣列
+        pre_text = all_text.split('--')[0]
+        # 把每段文字 根據 '\n' 切開
+        texts = pre_text.split('\n')
+        # 如果你爬多篇你會發現 
+        contents = texts[2:]
+        # 內容
+        content = ''.join(contents)
+        return content
     
     # 根據PTT的URL取得這個PTT頁面的資料的DataFrame格式
     def get_this_index_data(URL):
-        
-        # 輔助函數用來擷取PTT頁面的內容
-        def get_content(soup):
-            ## 查找所有html 元素 抓出內容
-            main_container = soup.find(id='main-container')
-            # 把所有文字都抓出來
-            all_text = main_container.text
-            # 把整個內容切割透過 "-- " 切割成2個陣列
-            pre_text = all_text.split('--')[0]
-            # 把每段文字 根據 '\n' 切開
-            texts = pre_text.split('\n')
-            # 如果你爬多篇你會發現 
-            contents = texts[2:]
-            # 內容
-            content = ''.join(contents)
-            return content
         
         # 發送get 請求 到 ptt 八卦版
         response = requests.get(URL, headers = {'cookie': 'over18=1;'})
@@ -199,10 +197,9 @@ def get_some_page_ptt_data(URL,last_n_page):
             except:
                 pass #(本文已被刪除)
         df = pd.DataFrame()
-        min_len = np.min([len(titles),len(urls),len(contents)])
-        df['title'] = titles[:min_len]
-        df['url'] = urls[:min_len]
-        df['content'] = contents[:min_len]
+        df['title'] = titles
+        df['url'] = urls
+        df['content'] = contents
         return df
     
     # 計算目前ptt政治版總共有多少page
@@ -232,16 +229,15 @@ def get_some_page_ptt_data(URL,last_n_page):
         contents = []
         for i in tqdm(result):
             try:
-                post_url = 'https://www.ptt.cc'+str(i).split('href="')[1].split('">')[0]
-                urls.append(post_url)
-                titles.append(str(i).split("]")[1].split("<")[0])
-                response = requests.get(post_url, headers = my_headers)
+                titles.append(i.text.replace("\n",''))
+                urls.append('https://www.ptt.cc'+str(i.find_all('a')[0]['href']))
+                response = requests.get(urls[-1], headers = my_headers)
                 soup = bs4.BeautifulSoup(response.text,"html.parser")
                 contents.append(get_content(soup))
             except:
-                pass #(本文已被刪除)
+                print('頁面刪除')
         df = pd.DataFrame()
-        min_len = np.min([len(titles),len(urls),len(contents)])
+        min_len = min(len(titles),len(urls),len(contents))
         df['title'] = titles[:min_len]
         df['url'] = urls[:min_len]
         df['content'] = contents[:min_len]
@@ -250,8 +246,7 @@ def get_some_page_ptt_data(URL,last_n_page):
     #取得PTT政治板最新的PAGE
     df = get_this_index_data(URL) 
     for u in tqdm(URLS): #對URLS做遍歷
-        d = get_this_index_data(u)#取得df欄位有title,url,content
-        df = pd.concat([df,d]) #串接起來
+        df = df.append(get_this_index_data(u))
     return df
 
 # 根據URL和指定數量PAGE和特定角色計算聲量分數
