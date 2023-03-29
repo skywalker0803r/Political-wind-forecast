@@ -30,7 +30,7 @@ def predict_function(df,person_name,n=3):
     
     # 評分機制 由特定pretrain model做zero-shot-classification看這則文章屬於["positive", "negative"]哪一種
     person_name_df['情緒'] = 0
-    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device=0,) #joeddav/xlm-roberta-large-xnli有支援中文
+    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device='cpu',use_auth_token=True) #joeddav/xlm-roberta-large-xnli有支援中文
     candidate_labels = ["positive", "negative"]
     for idx,text in tqdm(enumerate(person_name_df['all_text'].values.tolist())):
         person_name_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
@@ -72,10 +72,17 @@ def craw_ctinews(n=5,sleep_time=3):
     urls = []
     contents = []
     for s in soup.find_all('div', class_='base-card__news-title')[:n]:
-        titles.append(s.text)
-        urls.append('https://ctinews.com'+re.search('href="(.+?)"', str(s)).group(1))
-        contents.append(BeautifulSoup(requests.get(urls[-1]).text,'html.parser').find_all('div',class_='rendered-content em:text-xl leading-normal ck-content')[0].text)
-        time.sleep(sleep_time)
+        try:
+            titles.append(s.text)
+            urls.append('https://ctinews.com'+re.search('href="(.+?)"', str(s)).group(1))
+            contents.append(BeautifulSoup(requests.get(urls[-1]).text,'html.parser').find_all('div',class_='rendered-content em:text-xl leading-normal ck-content')[0].text)
+            time.sleep(sleep_time)
+        except:
+            df = pd.DataFrame()
+            df['title'] = ['--','--']
+            df['url'] = ['--','--']
+            df['content'] = ['--','--']
+            return df
     df = pd.DataFrame()
     df['title'] = titles
     df['url'] = urls
@@ -270,7 +277,10 @@ def get_score_by_person(
     if use_ettoday_data == True:
         ettoday_data = craw_ettoday(hours=2)
         if save['ettoday'] == True:
-            ettoday_data.to_excel('./ettoday.xlsx')
+            try:
+                ettoday_data.to_excel('./ettoday.xlsx')
+            except:
+                pass
         df = df.append(ettoday_data)
         print(f'ettoday資料數{len(ettoday_data)}')
     
@@ -278,7 +288,10 @@ def get_score_by_person(
     if use_udn_data == True:
         udn_data = craw_UDN()
         if save['udn'] == True:
-            udn_data.to_excel('./udn.xlsx')
+            try:
+                udn_data.to_excel('./udn.xlsx')
+            except:
+                pass
         df = df.append(udn_data)
         print(f'udn資料數{len(udn_data)}')
     
@@ -286,7 +299,10 @@ def get_score_by_person(
     if use_ctinews_data == True:
         ctinews_data = craw_ctinews()
         if save['ctinews'] == True:
-            ctinews_data.to_excel('./ctinews_data.xlsx')
+            try:
+                ctinews_data.to_excel('./ctinews_data.xlsx')
+            except:
+                pass
         df = df.append(ctinews_data)
         print(f'ctinews資料數{len(ctinews_data)}')
     
@@ -294,7 +310,10 @@ def get_score_by_person(
     if use_setnnews_data == True:
         setn_data = craw_setn()
         if save['setnnews'] == True:
-            setn_data.to_excel('./setn_data.xlsx')
+            try:
+                setn_data.to_excel('./setn_data.xlsx')
+            except:
+                pass
         df = df.append(setn_data)
         print(f'setnnews資料數{len(setn_data)}')
     
