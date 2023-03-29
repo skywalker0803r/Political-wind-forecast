@@ -104,7 +104,7 @@ def craw_ctinews(n=5,sleep_time=3):
     return df
 
 # 爬UDN新聞網
-def craw_UDN():
+def craw_UDN(n):
     r = requests.get('https://udn.com/rank/pv/2')
     df = pd.DataFrame()
     titles = []
@@ -113,7 +113,7 @@ def craw_UDN():
     if r.status_code == requests.codes.ok:
         soup = BeautifulSoup(r.text, 'html.parser')
         stories = soup.find_all('a', class_='story-list__image--holder')
-        for s in tqdm(stories): 
+        for s in tqdm(stories[:n]):
             if type(s.get('aria-label')) is str:  
                 titles.append(s['aria-label'])
                 urls.append(s.get('href'))
@@ -223,13 +223,13 @@ def get_some_page_ptt_data(URL="https://www.ptt.cc/bbs/HatePolitics/index.html",
         return df
     
     # 計算目前ptt政治版總共有多少page
-    def get_total_page_number(URL):
+    def get_total_page_number(URL="https://www.ptt.cc/bbs/HatePolitics/index.html"):
         response = requests.get(URL, headers = {'cookie': 'over18=1;'})
         soup = bs4.BeautifulSoup(response.text,"html.parser")
         number = int(str(soup.select('#action-bar-container > div > div.btn-group.btn-group-paging > a:nth-child(2)')[0]).split('index')[1].split('.html')[0])
         return number
     
-    total_page_number = get_total_page_number(URL)
+    total_page_number = get_total_page_number(URL="https://www.ptt.cc/bbs/HatePolitics/index.html")
     
     # 取得一些政治板page的連結稱為URLS
     URLS = [f"https://www.ptt.cc/bbs/HatePolitics/index{i}.html" for i in range(total_page_number,total_page_number-PTT_n_page,-1)]
@@ -286,7 +286,9 @@ def get_score_by_person(
     # 釋放記憶體
     gc.collect()
     # 取得PTT資料
-    df = get_some_page_ptt_data(PTT_n_page)
+    df = get_some_page_ptt_data(
+        URL="https://www.ptt.cc/bbs/HatePolitics/index.html",
+        PTT_n_page=PTT_n_page)
     # 判斷是否保存資料
     if save['ptt'] == True:
         df.to_excel('ptt.xlsx')
@@ -294,7 +296,7 @@ def get_score_by_person(
     
     # 是否增加ettoday_data資料
     if use_ettoday_data == True:
-        ettoday_data = craw_ettoday(hours=2)
+        ettoday_data = craw_ettoday(hours=ettoday_n_page)
         # 判斷是否保存資料
         if save['ettoday'] == True:
             try:
@@ -307,7 +309,7 @@ def get_score_by_person(
     
     # 是否增加udn_data資料
     if use_udn_data == True:
-        udn_data = craw_UDN()
+        udn_data = craw_UDN(n=udn_n_page)
         # 判斷是否保存資料
         if save['udn'] == True:
             try:
@@ -320,7 +322,7 @@ def get_score_by_person(
     
     # 是否增加ctinews_data資料
     if use_ctinews_data == True:
-        ctinews_data = craw_ctinews()
+        ctinews_data = craw_ctinews(n=ctinews_n_page,sleep_time=3)
         # 判斷是否保存資料
         if save['ctinews'] == True:
             try:
@@ -333,7 +335,7 @@ def get_score_by_person(
     
     # 是否增加setn_data資料
     if use_setnnews_data == True:
-        setn_data = craw_setn()
+        setn_data = craw_setn(n=setn_n_page)
         # 判斷是否保存資料
         if save['setnnews'] == True:
             try:

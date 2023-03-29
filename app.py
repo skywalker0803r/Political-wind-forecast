@@ -32,7 +32,7 @@ if mode == '上傳特定檔案預測':
 
 #輸入政客名稱
 with st.sidebar:
-    figure_name = st.text_input("輸入政治人物名稱:")
+    person_name = st.text_input("輸入政治人物名稱:")
 
 # 使用者定義參數 PTT_n_page
 with st.sidebar:
@@ -96,14 +96,21 @@ if st.button('Submit'):
         with st.sidebar:
             st.write('使用資料如下')
             st.write(use_data_list)
-        score = get_score_by_person(URL,PTT_n_page,figure_name,save={'ptt':True,'ettoday':True,'udn':True,'ctinews':True,'setnnews':True},
-        use_ettoday_data = use_ettoday_data,
-        use_udn_data = use_udn_data,
-        use_ctinews_data = use_ctinews_data,
-        use_setnnews_data = use_setnnews_data,
-        )
-        st.success(f"{figure_name}'的政治聲量分數為:{score}")
+        score = get_score_by_person(
+            PTT_n_page = PTT_n_page,
+            ettoday_n_page = ettoday_n_page,
+            udn_n_page = udn_n_page,
+            setn_n_page = setn_n_page,
+            ctinews_n_page = ctinews_n_page,
+            person_name = person_name,
+            save={'ptt':True,'ettoday':True,'udn':True,'ctinews':True,'setnnews':True},
+            use_ettoday_data = use_ettoday_data,
+            use_udn_data = use_udn_data,
+            use_ctinews_data = use_ctinews_data,
+            use_setnnews_data = use_setnnews_data,
+            )
+        st.success(f"{person_name}'的政治聲量分數為:{score}")
     
     if mode == '上傳特定檔案預測':
-        score = predict_function(dataframe,figure_name)
-        st.success(f"{figure_name}'的政治聲量分數為:{score}")
+        score = predict_function(dataframe,person_name)
+        st.success(f"{person_name}'的政治聲量分數為:{score}")
