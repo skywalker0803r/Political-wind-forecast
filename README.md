@@ -4,19 +4,23 @@ Political Wind Forecast is a web application built with Streamlit. The applicati
 # Installation
 To install the necessary packages, run the following command:
 
+```
 pip install -r requirements.txt
+```
 
 # Usage
 To start the application, run the following command:
 
+```
 streamlit run app.py
+```
 
 Once the application is running, you can input the name of a politician and select the websites to crawl. The application will crawl the selected websites and analyze the sentiment of the collected data.
 
 # Files
-app.py: The main application file.
-utils.py: Utility functions used in the application.
-requirements.txt: The list of required packages.
+* app.py: The main application file.
+* utils.py: Utility functions used in the application.
+* requirements.txt: The list of required packages.
 
-License
+# License
 This project is licensed under the MIT License. See the LICENSE file for more information.
