@@ -14,34 +14,48 @@ import warnings
 import streamlit as st
 warnings.filterwarnings('ignore')
 
-def predict_function(df,person_name,n=3):
+def predict_function(df,person_name,min_data_n=3): #最小資料量min_data_n
     # 合併標題和內文
     df['all_text'] = df['title'] + df['content']
     idx_lst = []
+    # 對每一筆新聞進行遍歷
     for idx,text in enumerate(df['all_text']):
         text = str(text)
+        # 檢查該政治人物是否出現在文章中
         if person_name in text:
             idx_lst.append(idx)
+    # 擷取出有出現特定政治人物的df
     person_name_df = df.iloc[idx_lst,:]
     person_name_df = person_name_df.reset_index(drop=True)
+    # 計算一共有多少筆談論該政治人物的文章
     st.write(f'出現{person_name}的資料筆數:',len(person_name_df))
-    if len(person_name_df)<n:
+    # 資料不足的情況
+    if len(person_name_df) < min_data_n:
         st.write(f'資料過少,少於{n}筆')
     
     # 評分機制 由特定pretrain model做zero-shot-classification看這則文章屬於["positive", "negative"]哪一種
     person_name_df['情緒'] = 0
-    classifier = pipeline(task="zero-shot-classification", model='joeddav/xlm-roberta-large-xnli',device='cpu',use_auth_token=True) #joeddav/xlm-roberta-large-xnli有支援中文
+    classifier = pipeline(
+        task="zero-shot-classification", 
+        model='joeddav/xlm-roberta-large-xnli',#joeddav/xlm-roberta-large-xnli有支援中文
+        device='cpu',
+        use_auth_token=True) 
     candidate_labels = ["positive", "negative"]
+    
+    # 對文章做遍歷個別去計算情緒分數
     for idx,text in tqdm(enumerate(person_name_df['all_text'].values.tolist())):
         person_name_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
-    # 最後將score定義為 positive/negative
+    
+    # 最後將score定義為:positive.sum()/negative.sum()
     if (person_name_df['情緒']=='negative').sum() > 0:
         score = (person_name_df['情緒']=='positive').sum()/(person_name_df['情緒']=='negative').sum()
-    else:
+    # 分母為0無法計算
+    else: 
         score = "score = (person_name_df['情緒']=='positive').sum()/(person_name_df['情緒']=='negative').sum() but can not caculate"
+    
     return score
 
-# 輸入sentence前處理
+# 輸入句子前處理函數返回乾淨句子
 def preprocess_raw_sentence(x):
     x = re.sub(r'[a-zA-Z]','',x) #去除英文
     x = re.sub(r'[\d]','',x) #去除數字
@@ -163,7 +177,7 @@ def craw_ettoday(hours=2): # hours=2控制資料量
     return df_content
 
 # 爬ptt政治板
-def get_some_page_ptt_data(URL,last_n_page):
+def get_some_page_ptt_data(URL="https://www.ptt.cc/bbs/HatePolitics/index.html",PTT_n_page=10):
     def get_content(soup):
         ## 查找所有html 元素 抓出內容
         main_container = soup.find(id='main-container')
@@ -180,8 +194,7 @@ def get_some_page_ptt_data(URL,last_n_page):
         return content
     
     # 根據PTT的URL取得這個PTT頁面的資料的DataFrame格式
-    def get_this_index_data(URL):
-        
+    def get_this_index_data(URL="https://www.ptt.cc/bbs/HatePolitics/index.html"):
         # 發送get 請求 到 ptt 八卦版
         response = requests.get(URL, headers = {'cookie': 'over18=1;'})
         
@@ -219,7 +232,7 @@ def get_some_page_ptt_data(URL,last_n_page):
     total_page_number = get_total_page_number(URL)
     
     # 取得一些政治板page的連結稱為URLS
-    URLS = [f"https://www.ptt.cc/bbs/HatePolitics/index{i}.html" for i in range(total_page_number,total_page_number-last_n_page,-1)]
+    URLS = [f"https://www.ptt.cc/bbs/HatePolitics/index{i}.html" for i in range(total_page_number,total_page_number-PTT_n_page,-1)]
     
     # 根據特定URL取得這個PAGE的資料dataframe格式
     def get_this_index_data(URL):
@@ -256,65 +269,80 @@ def get_some_page_ptt_data(URL,last_n_page):
         df = df.append(get_this_index_data(u))
     return df
 
-# 根據URL和指定數量PAGE和特定角色計算聲量分數
+# 根據指定PAGE數量做爬蟲和特定角色計算聲量分數
 def get_score_by_person(
-    URL,
-    last_n_page,
-    person_name,
+    PTT_n_page = 10,
+    ettoday_n_page = 10,
+    udn_n_page = 10,
+    setn_n_page = 10,
+    ctinews_n_page = 10,
+    person_name = '蔡英文',
     save={'ptt':True,'ettoday':True,'udn':True,'ctinews':True,'setnnews':True},
-    use_ettoday_data=False,
-    use_udn_data=False,
-    use_ctinews_data=False,
-    use_setnnews_data=False,
+    use_ettoday_data = False,
+    use_udn_data = False,
+    use_ctinews_data = False,
+    use_setnnews_data = False,
     ):
+    # 釋放記憶體
     gc.collect()
-    df = get_some_page_ptt_data(URL,last_n_page)
+    # 取得PTT資料
+    df = get_some_page_ptt_data(PTT_n_page)
+    # 判斷是否保存資料
     if save['ptt'] == True:
         df.to_excel('ptt.xlsx')
     print(f'ptt資料數{len(df)}')
     
-    # 1 是否增加ettoday_data
+    # 是否增加ettoday_data資料
     if use_ettoday_data == True:
         ettoday_data = craw_ettoday(hours=2)
+        # 判斷是否保存資料
         if save['ettoday'] == True:
             try:
                 ettoday_data.to_excel('./ettoday.xlsx')
             except:
                 pass
+        # 與現有的資料進行合併
         df = df.append(ettoday_data)
         print(f'ettoday資料數{len(ettoday_data)}')
     
-    # 2 是否增加udn_data
+    # 是否增加udn_data資料
     if use_udn_data == True:
         udn_data = craw_UDN()
+        # 判斷是否保存資料
         if save['udn'] == True:
             try:
                 udn_data.to_excel('./udn.xlsx')
             except:
                 pass
+        # 與現有的資料進行合併
         df = df.append(udn_data)
         print(f'udn資料數{len(udn_data)}')
     
-    # 3 是否增加ctinews_data
+    # 是否增加ctinews_data資料
     if use_ctinews_data == True:
         ctinews_data = craw_ctinews()
+        # 判斷是否保存資料
         if save['ctinews'] == True:
             try:
                 ctinews_data.to_excel('./ctinews_data.xlsx')
             except:
                 pass
+        # 與現有資料進行合併
         df = df.append(ctinews_data)
         print(f'ctinews資料數{len(ctinews_data)}')
     
-    # 4 是否增加setn_data
+    # 是否增加setn_data資料
     if use_setnnews_data == True:
         setn_data = craw_setn()
+        # 判斷是否保存資料
         if save['setnnews'] == True:
             try:
                 setn_data.to_excel('./setn_data.xlsx')
             except:
                 pass
+        # 與現有資料進行合併
         df = df.append(setn_data)
         print(f'setnnews資料數{len(setn_data)}')
     
+    # 將合併後的資料和政治人物名稱帶入predict_function取得最後評分結果返回
     return predict_function(df,person_name)
