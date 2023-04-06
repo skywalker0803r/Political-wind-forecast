@@ -1,5 +1,5 @@
 import requests 
-from selenium import webdriver
+#from selenium import webdriver
 import bs4
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -34,6 +34,7 @@ def predict_function(df,person_name,min_data_n=3): #最小資料量min_data_n
         st.write(f'資料過少,少於{n}筆')
     
     # 評分機制 由特定pretrain model做zero-shot-classification看這則文章屬於["positive", "negative"]哪一種
+    st.write('create classifier pipeline')
     person_name_df['情緒'] = 0
     classifier = pipeline(
         task="zero-shot-classification", 
@@ -43,10 +44,12 @@ def predict_function(df,person_name,min_data_n=3): #最小資料量min_data_n
     candidate_labels = ["positive", "negative"]
     
     # 對文章做遍歷個別去計算情緒分數
+    st.write('遍歷爬取到的文章個別去計算情緒分數')
     for idx,text in tqdm(enumerate(person_name_df['all_text'].values.tolist())):
         person_name_df.loc[idx,'情緒'] = classifier(text,candidate_labels)['labels'][0]
     
     # 最後將score定義為:positive.sum()/negative.sum()
+    st.write("對情緒分數取平均")
     if (person_name_df['情緒']=='negative').sum() > 0:
         score = (person_name_df['情緒']=='positive').sum()/(person_name_df['情緒']=='negative').sum()
     # 分母為0無法計算
@@ -124,6 +127,7 @@ def craw_UDN(n):
     return df
 
 # 爬ettoday新聞網
+'''
 def craw_ettoday(hours=2): # hours=2控制資料量
     browser = webdriver.Chrome(executable_path='./chromedriver')
     browser.get("https://www.ettoday.net/news/news-list.htm")
@@ -175,6 +179,7 @@ def craw_ettoday(hours=2): # hours=2控制資料量
         df_content.loc[idx,'url'] = 連結
         df_content.loc[idx,'content'] = 內文
     return df_content
+'''
 
 # 爬ptt政治板
 def get_some_page_ptt_data(URL="https://www.ptt.cc/bbs/HatePolitics/index.html",PTT_n_page=10):

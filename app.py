@@ -63,13 +63,6 @@ with st.sidebar:
         use_ptt_data = True
 
 with st.sidebar:
-    use_ettoday_data = False
-    ettoday = st.checkbox('ettoday')
-    if ettoday:
-        use_data_list.append('ettoday')
-        use_ettoday_data = True
-
-with st.sidebar:
     use_udn_data = False
     udn = st.checkbox('udn')
     if udn:
@@ -104,7 +97,7 @@ if st.button('Submit'):
             ctinews_n_page = ctinews_n_page,
             person_name = person_name,
             save={'ptt':True,'ettoday':True,'udn':True,'ctinews':True,'setnnews':True},
-            use_ettoday_data = use_ettoday_data,
+            use_ettoday_data = False,
             use_udn_data = use_udn_data,
             use_ctinews_data = use_ctinews_data,
             use_setnnews_data = use_setnnews_data,
