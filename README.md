@@ -4,9 +4,22 @@ Political Wind Forecast is a web application built with Streamlit. The applicati
 # Installation
 To install the necessary packages, run the following command:
 
+1. create virtual env and enter env
+
+```
+conda create --name Political_env python=3.7.16
+```
+
+```
+conda activate Political_env
+```
+
+2. install dependencies
+
 ```
 pip install -r requirements.txt
 ```
+
 
 # Usage
 To start the application, run the following command:
